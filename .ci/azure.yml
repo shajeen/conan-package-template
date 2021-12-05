@@ -1,0 +1,69 @@
+parameters:
+  - name: conanLoginUsername
+    type: string
+    default: ""
+  - name: conanPassword
+    type: string
+    default: ""
+  - name: jobsMaxParallel
+    type: number
+    default: 10
+  - name: pythonVersion
+    type: string
+    default: "3.8.x"
+  - name: bptConfigFileVersion
+    type: number
+    values:
+      - 2
+
+jobs:
+- job: generatematrix
+  displayName: " Generate Job Matrix"
+  pool:
+    vmImage: ubuntu-20.04
+  variables:
+    BPT_CONFIG_FILE_VERSION: ${{ parameters.bptConfigFileVersion }}
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: ${{ parameters.pythonVersion }}
+  - script: |
+      pip install git+https://github.com/bincrafters/bincrafters-package-tools@develop
+      bincrafters-package-tools generate-ci-jobs --platform azp
+      MATRIX=$(bincrafters-package-tools generate-ci-jobs --platform azp)
+      echo "##vso[task.setvariable variable=matrix;isOutput=true]${MATRIX}"
+    name: gen
+    displayName: Generate Job Matrix
+- job: conan
+  displayName: " "
+  dependsOn: generatematrix
+  pool:
+    vmImage: $(OS)
+  timeoutInMinutes: 120
+  variables:
+    BPT_MATRIX: $[ dependencies.generatematrix.outputs['gen.matrix'] ]
+    BPT_CONFIG_FILE_VERSION: ${{ parameters.bptConfigFileVersion }}
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: ${{ parameters.pythonVersion }}
+  - bash: |
+      pip install --upgrade cmake
+      pip install git+https://github.com/bincrafters/bincrafters-package-tools@develop
+      bincrafters-package-tools prepare-env --platform azp --select-config '$(NAME)' --config '$(BPT_MATRIX)'
+      python --version
+      pip --version
+      which cmake
+      cmake --version
+      echo $(BPT_MATRIX)
+      echo $(NAME)
+    displayName: Install Conan
+  - script: |
+      bincrafters-package-tools --auto
+    env:
+      CONAN_LOGIN_USERNAME: ${{ parameters.conanLoginUsername }}
+      CONAN_PASSWORD: ${{ parameters.conanPassword }}
+    displayName: Run
+  strategy:
+    maxParallel: ${{ parameters.jobsMaxParallel }}
+    matrix: $[ dependencies.generatematrix.outputs['gen.matrix'] ]
