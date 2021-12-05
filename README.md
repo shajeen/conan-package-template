@@ -1,5 +1,4 @@
-# Templates for Conan
-
+![Reference (18)](https://user-images.githubusercontent.com/2623563/144739677-28fe3d83-244d-4889-82d7-7bd7319ef358.png)
 This repository contains "templates" for Git repositories hosting Conan recipes and related files for setting up Continuous Integration services and GitHub. Please report questions or problems here:
 
 https://github.com/bincrafters/community/issues/new
